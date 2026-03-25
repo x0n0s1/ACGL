@@ -23,5 +23,6 @@ screen_write(s, 2, 2, "Hello");
 screen_drawRect(s, 0, 0, 10, 5, 0);
 
 render_screen(s);
-
+```
+Result :
 ![Demo](Image/InputResult_1.png)
