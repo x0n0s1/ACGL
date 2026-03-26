@@ -13,12 +13,12 @@ typedef struct{
 }Screen;
 
 Screen* screen_create(int width, int height);
-void screen_set(Screen *s,int row,int col, char c);
+void screen_set(Screen *s,int x,int y, char c);
 void screen_clear(Screen *s, char fill);
 void render_screen(Screen *s);
 void screen_write(Screen *s,int row,int col,char *text);
 void screen_drawRect(Screen *s,int row,int col,int width,int height,bool fill,char c);
-void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c);
+
 
 /*
 Initialize a instance of Screen
@@ -65,7 +65,7 @@ c should be a valid ASCII char
 To write to a screen named X_screen :
 screen_set(X_screen,row,col,utf-8 char);
 */
-void screen_set(Screen *s,int row,int col, char c){
+void screen_set(Screen *s,int x,int y, char c){
     if (!s){
         fprintf(stderr, "Error: non-initialized Screen struct\n");
         return;
@@ -79,11 +79,11 @@ void screen_set(Screen *s,int row,int col, char c){
         fprintf(stderr, "Error: invalid screen size\n");
         return;
     }
-    if (row < 0 || row >= s->height || col < 0 || col >= s->width){ 
+    if (y < 0 || y >= s->height || x < 0 || x >= s->width){ 
         fprintf(stderr, "Error: invalid set location\n");
         return;
     }
-    s->data[row * s->width + col] = c;
+    s->data[y * s->width + x] = c;
 }
 
 /*
@@ -143,6 +143,7 @@ void render_screen(Screen *s){
         printf("%c",*(s->data+i));
         if(i%s->width==s->width-1) printf("\n");
     }
+    printf("\n");
 }
 
 /*
@@ -156,7 +157,7 @@ if this value exceed the Screen instance width, then the text will get cutoff
 To write a text to a screen named X_screen :
 screen_write(X_screen,starting row,starting col,'your text');
 */
-void screen_write(Screen *s,int row,int col,char *text){
+void screen_write(Screen *s,int x,int y,char *text){
     if (!s){
         fprintf(stderr, "Error: non-initialized Screen struct\n");
         return;
@@ -171,15 +172,15 @@ void screen_write(Screen *s,int row,int col,char *text){
         return;
     }
 
-    if (row < 0 || row >= s->height || col < 0 || col >= s->width){ 
+    if (y < 0 || y >= s->height || x < 0 || x >= s->width){ 
         fprintf(stderr, "Error: invalid set location\n");
         return;
     }
     int len = strlen(text);
 
     for(int i = 0; i < len; i++){
-        if(col + i >= s->width) break;  // stop at edge
-        screen_set(s, row, col + i, text[i]);
+        if(x + i >= s->width) break;  // stop at edge
+        screen_set(s, x+i, y , text[i]);
     }
 }
 
@@ -191,7 +192,7 @@ height and width should be
 To draw a rect in a screen called X_screen :
 screen_drawRect(X_screen,row,col,width,height,[0 OR 1]);
 */
-void screen_drawRect(Screen *s,int row,int col,int width,int height,bool fill,char c){
+void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c){
     if (!s){
         fprintf(stderr, "Error: non-initialized Screen struct\n");
         return;
@@ -206,44 +207,36 @@ void screen_drawRect(Screen *s,int row,int col,int width,int height,bool fill,ch
         return;
     }
 
-    if (row < 0 || row >= s->height || col < 0 || col >= s->width){ 
+    if (y < 0 || y >= s->height || x < 0 || x >= s->width){ 
         fprintf(stderr, "Error: invalid set location\n");
         return;
     }
 
-    for(int r = 0; r < height; r++){
-        for(int c = 0; c < width; c++){
+    for(int ry = 0; ry < height; ry++){
+        for(int cx = 0; cx < width; cx++){
 
-            int screen_row = row + r;
-            int screen_col = col + c;
+            int screen_y = y + ry;
+            int screen_x = x + cx;
 
-            if(screen_row >= s->height || screen_col >= s->width) continue;
+            if(screen_y >= s->height || screen_x >= s->width) continue;
 
             if(fill){
-                screen_set(s, screen_row, screen_col, c);
+                screen_set(s, screen_x, screen_y, c);
             } else {
-                if(r == 0 || r == height-1 || c == 0 || c == width-1){
-                    screen_set(s, screen_row, screen_col, c);
+                if(ry == 0 || ry == height-1 || cx == 0 || cx == width-1){
+                    screen_set(s, screen_x, screen_y, c);
                 }
             }
         }
     }
 }
 
-void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c){
-
-}
-
 int main(){
-    Screen *s = screen_create(5, 3);
-    screen_clear(s, '.');
+Screen *s = screen_create(10, 5);
 
-    screen_set(s, 0, 0, 'A'); // top-left
-    screen_set(s, 1, 2, 'B'); // middle row, 3rd column
+screen_clear(s, '.');
+screen_write(s, 2, 2, "Hello");
+screen_drawRect(s, 0, 0, 10, 5, 0,'*');
 
-    render_screen(s);
-
-    free(s->data);
-    free(s);
-    return 0;
+render_screen(s);
 }
