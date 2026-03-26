@@ -21,8 +21,8 @@ Screen* screen_create(int width, int height);
 void screen_set(Screen *s,int x,int y, char c);
 void screen_clear(Screen *s, char fill);
 void screen_render(Screen *s);
-void screen_write(Screen *s,int row,int col,char *text);
-void screen_drawRect(Screen *s,int row,int col,int width,int height,bool fill,char c);
+void screen_write(Screen *s,int x,int y,char *text);
+void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c);
 void screen_destroy(Screen *s);
 void screen_terminalReset(void);
 void ACGL_init (void);
@@ -77,7 +77,7 @@ row and col should be superior to 0 and smaller or egal the the maximun size of 
 c should be a valid ASCII char
 
 To write to a screen named X_screen :
-screen_set(X_screen,row,col,utf-8 char);
+screen_set(X_screen,x,y,ASCII char);
 */
 void screen_set(Screen *s,int x,int y, char c){
     if (!s){
@@ -136,7 +136,7 @@ void screen_clear(Screen *s, char fill){
 Print the screen in the terminal
 
 To print a screen named X_screen :
-render_screen(X_screen);
+screen_render(X_screen);
 */
 void screen_render(Screen *s){
      if (!s){
@@ -171,7 +171,7 @@ to check is a text fit inside a Screen instance you can check by doing : (the nu
 if this value exceed the Screen instance width, then the text will get cutoff 
 
 To write a text to a screen named X_screen :
-screen_write(X_screen,starting row,starting col,'your text');
+screen_write(X_screen,x,y,'your text');
 */
 void screen_write(Screen *s,int x,int y,char *text){
     if (!s){
@@ -206,7 +206,7 @@ row and col should be superior to 0 and smaller or egal the the maximun size of 
 height and width should be
 
 To draw a rect in a screen called X_screen :
-screen_drawRect(X_screen,row,col,width,height,[0 OR 1]);
+screen_drawRect(X_screen,x,y,width,height,[0 OR 1]);
 */
 void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c){
     if (!s){
@@ -247,6 +247,12 @@ void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c
     }
 }
 
+/*
+Delete a instance of Screen
+
+To delete a screen called X_screen :
+screen_destroy(X_screen);
+*/
 void screen_destroy(Screen *s){
         if (!s){
         fprintf(stderr, "Error: non-initialized Screen struct\n");
@@ -266,10 +272,23 @@ void screen_destroy(Screen *s){
     free(s);
 }
 
+/*
+Clear the Terminal
+
+To use :
+screen_terminalReset();
+*/
 void screen_terminalReset(void){
     printf("\x1b[H");
 }
 
+/*
+Used to initialize the library
+If the user doesn't initialize the library, it will be done at the creation of a Screen instance
+
+To use :
+ACGL_init();
+*/
 void ACGL_init (void){
     #ifdef _WIN32
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
