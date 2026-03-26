@@ -15,7 +15,7 @@ typedef struct{
 Screen* screen_create(int width, int height);
 void screen_set(Screen *s,int x,int y, char c);
 void screen_clear(Screen *s, char fill);
-void render_screen(Screen *s);
+void screen_render(Screen *s);
 void screen_write(Screen *s,int row,int col,char *text);
 void screen_drawRect(Screen *s,int row,int col,int width,int height,bool fill,char c);
 
@@ -124,7 +124,7 @@ Print the screen in the terminal
 To print a screen named X_screen :
 render_screen(X_screen);
 */
-void render_screen(Screen *s){
+void screen_render(Screen *s){
      if (!s){
         fprintf(stderr, "Error: non-initialized Screen struct\n");
         return;
