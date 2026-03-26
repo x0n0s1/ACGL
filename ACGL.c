@@ -26,6 +26,7 @@ void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c
 void screen_destroy(Screen *s);
 void screen_terminalReset(void);
 void ACGL_init (void);
+void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c);
 
 static bool acgl_initialized = 0;
 
@@ -206,7 +207,7 @@ row and col should be superior to 0 and smaller or egal the the maximun size of 
 height and width should be
 
 To draw a rect in a screen called X_screen :
-screen_drawRect(X_screen,x,y,width,height,[0 OR 1]);
+screen_drawRect(X_screen,x,y,width,height,[0 OR 1],ANSII char);
 */
 void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c){
     if (!s){
@@ -301,10 +302,57 @@ void ACGL_init (void){
     setvbuf(stdout, NULL, _IONBF, 0);
     printf("\x1b[?25l");
 }
+/*
+Draw a line between two point (x1,y1) to (x2,y2)
+Use the Bresenham's line algorithm
+
+To draw a line in a screen called X_screen :
+screen_drawLine(X_screen,x1,y1,x2,y2,ANSII char)
+*/
+void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c){
+    if (!s){
+        fprintf(stderr, "Error: non-initialized Screen struct\n");
+        return;
+    }
+    if(!s->data){
+        fprintf(stderr, "Error: buffer allocation invalid\n");
+        return;
+    }
+    if (s->width <= 0 || s->height <= 0){
+        fprintf(stderr, "Error: invalid screen size\n");
+        return;
+    }
+
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int error = dx - dy;
+
+    while (1) {
+
+        if (x1 >= 0 && x1 < s->width && y1 >= 0 && y1 < s->height) {
+            screen_set(s, x1, y1, c);
+        }
+
+        if (x1 == x2 && y1 == y2) break;
+
+        int e2 = 2 * error;
+
+        if (e2 > -dy) {
+            error -= dy;
+            x1 += sx;
+        }
+
+        if (e2 < dx) {
+            error += dx;
+            y1 += sy;
+        }
+    }
+}
 
 int main(){
-
-    //demo of boucing ball inside a box
+//demo of boucing ball inside a box
     Screen *s = screen_create(30, 10);
 
     int x = 1;
