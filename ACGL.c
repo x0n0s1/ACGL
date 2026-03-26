@@ -3,6 +3,11 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <string.h>
+#include <unistd.h> 
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #define DEFAULT_FILL ' '
 
@@ -18,7 +23,11 @@ void screen_clear(Screen *s, char fill);
 void screen_render(Screen *s);
 void screen_write(Screen *s,int row,int col,char *text);
 void screen_drawRect(Screen *s,int row,int col,int width,int height,bool fill,char c);
+void screen_destroy(Screen *s);
+void screen_terminalReset(void);
+void ACGL_init (void);
 
+static bool acgl_initialized = 0;
 
 /*
 Initialize a instance of Screen
@@ -52,6 +61,11 @@ Screen* screen_create(int width, int height) {
         fprintf(stderr, "Error: buffer allocation failed\n");
         free(s);
         return NULL;
+    }
+
+    if (!acgl_initialized) {
+        ACGL_init();
+        acgl_initialized = true;
     }
 
     return s;
@@ -143,7 +157,9 @@ void screen_render(Screen *s){
         printf("%c",*(s->data+i));
         if(i%s->width==s->width-1) printf("\n");
     }
+
     printf("\n");
+    fflush(stdout);
 }
 
 /*
@@ -231,12 +247,76 @@ void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c
     }
 }
 
+void screen_destroy(Screen *s){
+        if (!s){
+        fprintf(stderr, "Error: non-initialized Screen struct\n");
+        return;
+    }
+    if(!s->data){
+        fprintf(stderr, "Error: buffer allocation invalid\n");
+        return;
+    }
+    
+    if (s->width <= 0 || s->height <= 0){
+        fprintf(stderr, "Error: invalid screen size\n");
+        return;
+    }
+
+    free(s->data);
+    free(s);
+}
+
+void screen_terminalReset(void){
+    printf("\x1b[H");
+}
+
+void ACGL_init (void){
+    #ifdef _WIN32
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD mode = 0;
+    GetConsoleMode(hOut, &mode);
+    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, mode);
+    #endif
+
+    setvbuf(stdout, NULL, _IONBF, 0);
+    printf("\x1b[?25l");
+}
+
 int main(){
-Screen *s = screen_create(10, 5);
 
-screen_clear(s, '.');
-screen_write(s, 2, 2, "Hello");
-screen_drawRect(s, 0, 0, 10, 5, 0,'*');
+    //demo of boucing ball inside a box
+    Screen *s = screen_create(30, 10);
 
-screen_render(s);
+    int x = 1;
+    int y = 1;
+    int dx = 1;
+    int dy = 1;
+
+    while(1){
+        screen_terminalReset();          // clear terminal
+        screen_clear(s, ' ');            // clear buffer
+
+        // draw border
+        screen_drawRect(s, 0, 0, s->width, s->height, false, '#');
+
+        // draw moving point
+        screen_set(s, x, y, 'O');
+
+        // render
+        screen_render(s);
+
+        // update position
+        x += dx;
+        y += dy;
+
+        // bounce on walls
+        if(x <= 1 || x >= s->width - 2) dx = -dx;
+        if(y <= 1 || y >= s->height - 2) dy = -dy;
+
+        usleep(50000); // ~50ms delay (20 FPS)
+    }
+
+    screen_destroy(s);
+    return 0;
 }
