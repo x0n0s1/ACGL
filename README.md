@@ -7,7 +7,7 @@ It provides an easy-to-use abstraction of a 2D screen, allowing users to build v
 ## Features
 
 - Initialize a `Screen` instance
-- Set a character at a given coordinate `(row, col)`
+- Set a character at a given coordinate `(x,y)`
 - Write text to the screen
 - Clear the screen with a chosen character
 - Render the screen to the terminal
@@ -20,9 +20,9 @@ Screen *s = screen_create(10, 5);
 
 screen_clear(s, '.');
 screen_write(s, 2, 2, "Hello");
-screen_drawRect(s, 0, 0, 10, 5, 0);
+screen_drawRect(s, 0, 0, 10, 5, 0,'*');
 
-render_screen(s);
+screen_render(s);
 ```
 Result :
 
