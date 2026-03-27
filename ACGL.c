@@ -272,7 +272,7 @@ To use :
 screen_terminalReset();
 */
 void screen_terminalReset(void){
-    printf("\x1b[2J\x1b[H");
+    printf("\x1b[H");
 }
 
 /*
@@ -375,7 +375,7 @@ int main(){
 
         // render
         screen_render(s);
-
+        screen_refreshRate(20);
 
         // update position
         x += dx;
