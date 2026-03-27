@@ -27,6 +27,7 @@ void screen_destroy(Screen *s);
 void screen_terminalReset(void);
 void ACGL_init (void);
 void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c);
+void screen_refreshRate(int fps);
 
 static bool acgl_initialized = 0;
 
@@ -136,8 +137,11 @@ void screen_clear(Screen *s, char fill){
 /*
 Print the screen in the terminal
 
+fps should be superior or egal to 0
+for non animated application use fps = 0
+
 To print a screen named X_screen :
-screen_render(X_screen);
+screen_render(X_screen,fps);
 */
 void screen_render(Screen *s){
      if (!s){
@@ -255,19 +259,7 @@ To delete a screen called X_screen :
 screen_destroy(X_screen);
 */
 void screen_destroy(Screen *s){
-        if (!s){
-        fprintf(stderr, "Error: non-initialized Screen struct\n");
-        return;
-    }
-    if(!s->data){
-        fprintf(stderr, "Error: buffer allocation invalid\n");
-        return;
-    }
-    
-    if (s->width <= 0 || s->height <= 0){
-        fprintf(stderr, "Error: invalid screen size\n");
-        return;
-    }
+    if (!s) return;
 
     free(s->data);
     free(s);
@@ -280,7 +272,7 @@ To use :
 screen_terminalReset();
 */
 void screen_terminalReset(void){
-    printf("\x1b[H");
+    printf("\x1b[2J\x1b[H");
 }
 
 /*
@@ -351,6 +343,17 @@ void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c){
     }
 }
 
+/*
+put a delay given in fps
+*/
+void screen_refreshRate(int fps){
+    if (fps<=0) return;
+    else{
+    int delay_us = 1000000 / fps;
+    usleep(delay_us);
+    }
+}
+
 int main(){
 //demo of boucing ball inside a box
     Screen *s = screen_create(30, 10);
@@ -373,6 +376,7 @@ int main(){
         // render
         screen_render(s);
 
+
         // update position
         x += dx;
         y += dy;
@@ -380,8 +384,6 @@ int main(){
         // bounce on walls
         if(x <= 1 || x >= s->width - 2) dx = -dx;
         if(y <= 1 || y >= s->height - 2) dy = -dy;
-
-        usleep(50000); // ~50ms delay (20 FPS)
     }
 
     screen_destroy(s);
