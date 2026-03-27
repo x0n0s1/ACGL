@@ -27,3 +27,45 @@ screen_render(s);
 Result :
 
 ![Demo](Image/InputResult_1.png)
+
+
+Bouncing ball demo :
+
+```c
+Screen *s = screen_create(30, 10);
+
+    int x = 1;
+    int y = 1;
+    int dx = 1;
+    int dy = 1;
+
+    while(1){
+        screen_terminalReset();          // clear terminal
+        screen_clear(s, ' ');            // clear buffer
+
+        // draw border
+        screen_drawRect(s, 0, 0, s->width, s->height, false, '#');
+
+        // draw moving point
+        screen_set(s, x, y, 'O');
+
+        // render
+        screen_render(s);
+        screen_refreshRate(20);
+
+        // update position
+        x += dx;
+        y += dy;
+
+        // bounce on walls
+        if(x <= 1 || x >= s->width - 2) dx = -dx;
+        if(y <= 1 || y >= s->height - 2) dy = -dy;
+    }
+
+    screen_destroy(s);
+    return 0;
+```
+
+Result :
+
+![Demo](Image/demo_bounce1.gif)
