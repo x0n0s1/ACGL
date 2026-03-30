@@ -28,6 +28,7 @@ void screen_terminalReset(void);
 void ACGL_init (void);
 void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c);
 void screen_refreshRate(int fps);
+void screen_drawCircle(Screen *s,int x,int y,int radius, bool fill);
 
 static bool acgl_initialized = 0;
 
@@ -345,6 +346,8 @@ void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c){
 
 /*
 put a delay given in fps
+
+To use put it a the end of your loop
 */
 void screen_refreshRate(int fps){
     if (fps<=0) return;
@@ -352,6 +355,10 @@ void screen_refreshRate(int fps){
     int delay_us = 1000000 / fps;
     usleep(delay_us);
     }
+}
+
+void screen_drawCircle(Screen *s,int x,int y,int radius, bool fill){
+
 }
 
 int main(){
