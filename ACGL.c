@@ -28,7 +28,7 @@ void screen_terminalReset(void);
 void ACGL_init (void);
 void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c);
 void screen_refreshRate(int fps);
-void screen_drawCircle(Screen *s,int x,int y,int radius, bool fill);
+void screen_drawCircle(Screen *s,int x,int y,int radius, bool fill,char c);
 
 static bool acgl_initialized = 0;
 
@@ -80,7 +80,7 @@ row and col should be superior to 0 and smaller or egal the the maximun size of 
 c should be a valid ASCII char
 
 To write to a screen named X_screen :
-screen_set(X_screen,x,y,ASCII char);
+screen_set(X_screen,x,y,'char');
 */
 void screen_set(Screen *s,int x,int y, char c){
     if (!s){
@@ -97,7 +97,6 @@ void screen_set(Screen *s,int x,int y, char c){
         return;
     }
     if (y < 0 || y >= s->height || x < 0 || x >= s->width){ 
-        fprintf(stderr, "Error: invalid set location\n");
         return;
     }
     s->data[y * s->width + x] = c;
@@ -108,7 +107,7 @@ Fill the whole screen with a specified character
 fill should be a valid ASCII character
 
 To fill a screen named X_screen :
-screen_clear(X_screen,"char");
+screen_clear(X_screen,'char');
 
 OR
 
@@ -208,11 +207,9 @@ void screen_write(Screen *s,int x,int y,char *text){
 
 /*
 Draw a rectangle starting in the upper left
-row and col should be superior to 0 and smaller or egal the the maximun size of the corresponding screen axis
-height and width should be
 
 To draw a rect in a screen called X_screen :
-screen_drawRect(X_screen,x,y,width,height,[0 OR 1],ANSII char);
+screen_drawRect(X_screen,x,y,width,height,[true OR false],'char');
 */
 void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c){
     if (!s){
@@ -300,7 +297,7 @@ Draw a line between two point (x1,y1) to (x2,y2)
 Use the Bresenham's line algorithm
 
 To draw a line in a screen called X_screen :
-screen_drawLine(X_screen,x1,y1,x2,y2,ANSII char)
+screen_drawLine(X_screen,x1,y1,x2,y2,'char')
 */
 void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c){
     if (!s){
@@ -357,40 +354,97 @@ void screen_refreshRate(int fps){
     }
 }
 
-void screen_drawCircle(Screen *s,int x,int y,int radius, bool fill){
+/*
+Draw a circle with (cx,cy) as center of a given radius
+Use the Midpoint circle algorithm (Jesko's method)
 
+To draw a circle in a screen called X_screen :
+screen_drawCricle(X_screen,cx,cy,radius,[true OR false],'char');
+*/
+void screen_drawCircle(Screen *s, int cx, int cy, int radius, bool fill,char c){
+    if (!s || !s->data){
+        fprintf(stderr, "Error: invalid screen\n");
+        return;
+    }
+    if (radius < 0) return;
+
+    int x = radius;
+    int y = 0;
+    int t1 = radius / 16;
+
+    while (x >= y){
+
+        if (fill){
+
+            for(int i = cx - x; i <= cx + x; i++){
+                screen_set(s, i, cy + y, c);
+                screen_set(s, i, cy - y, c);
+            }
+
+            for(int i = cx - y; i <= cx + y; i++){
+                screen_set(s, i, cy + x, c);
+                screen_set(s, i, cy - x, c);
+            }
+
+        } else {
+
+            screen_set(s, cx + x, cy + y, c);
+            screen_set(s, cx - x, cy + y, c);
+            screen_set(s, cx + x, cy - y, c);
+            screen_set(s, cx - x, cy - y, c);
+
+            screen_set(s, cx + y, cy + x, c);
+            screen_set(s, cx - y, cy + x, c);
+            screen_set(s, cx + y, cy - x, c);
+            screen_set(s, cx - y, cy - x, c);
+        }
+
+        y++;
+        t1 += y;
+        int t2 = t1 - x;
+
+        if (t2 >= 0){
+            t1 = t2;
+            x--;
+        }
+    }
 }
 
 int main(){
-//demo of boucing ball inside a box
-    Screen *s = screen_create(30, 10);
+    Screen *s = screen_create(40, 15);
 
-    int x = 1;
-    int y = 1;
-    int dx = 1;
-    int dy = 1;
+    int cx = 10, cy = 5;
+    int dx = 1, dy = 1;
+
+    int radius = 2;
+    int dr = 1;
 
     while(1){
-        screen_terminalReset();          // clear terminal
-        screen_clear(s, ' ');            // clear buffer
+        screen_terminalReset();     // go to top-left (no full clear)
+        screen_clear(s, ' ');       // clear buffer
+
+        // draw animated circle
+        screen_drawCircle(s, cx, cy, radius, true, 'O');
 
         // draw border
         screen_drawRect(s, 0, 0, s->width, s->height, false, '#');
 
-        // draw moving point
-        screen_set(s, x, y, 'O');
-
-        // render
         screen_render(s);
         screen_refreshRate(20);
 
-        // update position
-        x += dx;
-        y += dy;
+        // ===== UPDATE POSITION =====
+        cx += dx;
+        cy += dy;
 
         // bounce on walls
-        if(x <= 1 || x >= s->width - 2) dx = -dx;
-        if(y <= 1 || y >= s->height - 2) dy = -dy;
+        if(cx - radius <= 1 || cx + radius >= s->width - 2) dx = -dx;
+        if(cy - radius <= 1 || cy + radius >= s->height - 2) dy = -dy;
+
+        // ===== UPDATE RADIUS =====
+        radius += dr;
+        if(radius <= 1 || radius >= 5) {
+            dr = -dr;
+        }
     }
 
     screen_destroy(s);
