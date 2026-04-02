@@ -69,3 +69,50 @@ Screen *s = screen_create(30, 10);
 Result :
 
 ![Demo](Image/demo_bounce1.gif)
+
+Bouncing ball demo V2 :
+
+```c
+    Screen *s = screen_create(40, 15);
+
+    int cx = 10, cy = 5;
+    int dx = 1, dy = 1;
+
+    int radius = 2;
+    int dr = 1;
+
+    while(1){
+        screen_terminalReset();     // go to top-left (no full clear)
+        screen_clear(s, ' ');       // clear buffer
+
+        // draw animated circle
+        screen_drawCircle(s, cx, cy, radius, true, 'O');
+
+        // draw border
+        screen_drawRect(s, 0, 0, s->width, s->height, false, '#');
+
+        screen_render(s);
+        screen_refreshRate(20);
+
+        // Update position
+        cx += dx;
+        cy += dy;
+
+        // bounce on walls
+        if(cx - radius <= 1 || cx + radius >= s->width - 2) dx = -dx;
+        if(cy - radius <= 1 || cy + radius >= s->height - 2) dy = -dy;
+
+        // Update radius
+        radius += dr;
+        if(radius <= 1 || radius >= 5) {
+            dr = -dr;
+        }
+    }
+
+    screen_destroy(s);
+    return 0;
+```
+
+Result :
+
+![Demo](Image/demo_bounce2.gif)
