@@ -1,67 +1,58 @@
+#include "acgl.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <stdbool.h>
 #include <string.h>
-#include <unistd.h> 
+#include <unistd.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
+//Constants and Checks
 #define DEFAULT_FILL ' '
+static bool acgl_initialized = false;
 
-typedef struct{
-    int width;
-    int height;
-    char *data;
-}Screen;
+//Internal Helpers
+static inline bool screen_valid(Screen *s) {
+    return s && s->data && s->width > 0 && s->height > 0;
+}
 
-Screen* screen_create(int width, int height);
-void screen_set(Screen *s,int x,int y, char c);
-void screen_clear(Screen *s, char fill);
-void screen_render(Screen *s);
-void screen_write(Screen *s,int x,int y,char *text);
-void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c);
-void screen_destroy(Screen *s);
-void screen_terminalReset(void);
-void ACGL_init (void);
-void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c);
-void screen_refreshRate(int fps);
-void screen_drawCircle(Screen *s,int x,int y,int radius, bool fill,char c);
+static inline void screen_put(Screen *s, int x, int y, char c) {
+    if (x < 0 || y < 0 || x >= s->width || y >= s->height) return;
+    s->data[y * s->width + x] = c;
+}
 
-static bool acgl_initialized = 0;
+//Init
 
-/*
-Initialize a instance of Screen
-width and height should be superior to 0
+void ACGL_init(void) {
+#ifdef _WIN32
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD mode = 0;
+    GetConsoleMode(hOut, &mode);
+    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, mode);
+#endif
 
-To create a screen called X_screen : 
-Screen X_screen = create_screen(width,height);
-*/
+    setvbuf(stdout, NULL, _IONBF, 0);
+    printf("\x1b[?25l"); // hide cursor
+}
+
+//Screen Lifecycle
+
 Screen* screen_create(int width, int height) {
-    if (width <= 0 || height <= 0) {
-        fprintf(stderr, "Error: invalid screen size\n");
-        return NULL;
-    }
-
-    if (width > INT_MAX / height) {
-        fprintf(stderr, "Error: screen size too large (overflow)\n");
-        return NULL;
-    }
+    if (width <= 0 || height <= 0) return NULL;
+    if (width > INT_MAX / height) return NULL;
 
     Screen *s = malloc(sizeof(Screen));
-    if (!s) {
-        fprintf(stderr, "Error: struct allocation failed\n");
-        return NULL;
-    }
+    if (!s) return NULL;
 
     s->width = width;
     s->height = height;
 
     s->data = malloc(width * height);
     if (!s->data) {
-        fprintf(stderr, "Error: buffer allocation failed\n");
         free(s);
         return NULL;
     }
@@ -74,59 +65,21 @@ Screen* screen_create(int width, int height) {
     return s;
 }
 
-/*
-Write to a given location of a Screen buffer
-row and col should be superior to 0 and smaller or egal the the maximun size of the corresponding screen axis
-c should be a valid ASCII char
-
-To write to a screen named X_screen :
-screen_set(X_screen,x,y,'char');
-*/
-void screen_set(Screen *s,int x,int y, char c){
-    if (!s){
-        fprintf(stderr, "Error: non-initialized Screen struct\n");
-        return;
-    }
-    if(!s->data){
-        fprintf(stderr, "Error: buffer allocation invalid\n");
-        return;
-    }
-    
-    if (s->width <= 0 || s->height <= 0){
-        fprintf(stderr, "Error: invalid screen size\n");
-        return;
-    }
-    if (y < 0 || y >= s->height || x < 0 || x >= s->width){ 
-        return;
-    }
-    s->data[y * s->width + x] = c;
+void screen_destroy(Screen *s) {
+    if (!s) return;
+    free(s->data);
+    free(s);
 }
 
-/*
-Fill the whole screen with a specified character
-fill should be a valid ASCII character
+//Core Operations
 
-To fill a screen named X_screen :
-screen_clear(X_screen,'char');
+void screen_set(Screen *s, int x, int y, char c) {
+    if (!screen_valid(s)) return;
+    screen_put(s, x, y, c);
+}
 
-OR
-
-To fill with empty space :
-screen_clear(X_screen,DEFAULT_FILL);
-*/
-void screen_clear(Screen *s, char fill){
-    if (!s) {
-        fprintf(stderr, "Error: non-initialized Screen struct\n");
-        return;
-    }
-    if (!s->data) {
-        fprintf(stderr, "Error: buffer allocation invalid\n");
-        return;
-    }
-    if (s->width <= 0 || s->height <= 0) {
-        fprintf(stderr, "Error: invalid screen size\n");
-        return;
-    }
+void screen_clear(Screen *s, char fill) {
+    if (!screen_valid(s)) return;
 
     int total = s->width * s->height;
     for (int i = 0; i < total; i++) {
@@ -134,196 +87,63 @@ void screen_clear(Screen *s, char fill){
     }
 }
 
-/*
-Print the screen in the terminal
+void screen_render(Screen *s) {
+    if (!screen_valid(s)) return;
 
-fps should be superior or egal to 0
-for non animated application use fps = 0
-
-To print a screen named X_screen :
-screen_render(X_screen,fps);
-*/
-void screen_render(Screen *s){
-     if (!s){
-        fprintf(stderr, "Error: non-initialized Screen struct\n");
-        return;
-    }
-    if(!s->data){
-        fprintf(stderr, "Error: buffer allocation invalid\n");
-        return;
-    }
-    
-    if (s->width <= 0 || s->height <= 0){
-        fprintf(stderr, "Error: invalid screen size\n");
-        return;
+    for (int i = 0; i < s->width * s->height; i++) {
+        putchar(s->data[i]);
+        if (i % s->width == s->width - 1)
+            putchar('\n');
     }
 
-    for(int i=0;i<(s->width*s->height);i++){
-        printf("%c",*(s->data+i));
-        if(i%s->width==s->width-1) printf("\n");
-    }
-
-    printf("\n");
+    putchar('\n');
     fflush(stdout);
 }
 
-/*
-Store a string at a given position inside a Screen instance
-row and col should be superior to 0 and smaller or egal the the maximun size of the corresponding screen axis
-text should be a array of ASCII character
+void screen_write(Screen *s, int x, int y, const char *text) {
+    if (!screen_valid(s) || !text) return;
 
-to check is a text fit inside a Screen instance you can check by doing : (the number of character of the text array + the starting x point) 
-if this value exceed the Screen instance width, then the text will get cutoff 
-
-To write a text to a screen named X_screen :
-screen_write(X_screen,x,y,'your text');
-*/
-void screen_write(Screen *s,int x,int y,char *text){
-    if (!s){
-        fprintf(stderr, "Error: non-initialized Screen struct\n");
-        return;
-    }
-    if(!s->data){
-        fprintf(stderr, "Error: buffer allocation invalid\n");
-        return;
-    }
-    
-    if (s->width <= 0 || s->height <= 0){
-        fprintf(stderr, "Error: invalid screen size\n");
-        return;
-    }
-
-    if (y < 0 || y >= s->height || x < 0 || x >= s->width){ 
-        fprintf(stderr, "Error: invalid set location\n");
-        return;
-    }
     int len = strlen(text);
 
-    for(int i = 0; i < len; i++){
-        if(x + i >= s->width) break;  // stop at edge
-        screen_set(s, x+i, y , text[i]);
+    for (int i = 0; i < len && x + i < s->width; i++) {
+        screen_put(s, x + i, y, text[i]);
     }
 }
 
-/*
-Draw a rectangle starting in the upper left
+//Shapes
 
-To draw a rect in a screen called X_screen :
-screen_drawRect(X_screen,x,y,width,height,[true OR false],'char');
-*/
-void screen_drawRect(Screen *s,int x,int y,int width,int height,bool fill,char c){
-    if (!s){
-        fprintf(stderr, "Error: non-initialized Screen struct\n");
-        return;
-    }
-    if(!s->data){
-        fprintf(stderr, "Error: buffer allocation invalid\n");
-        return;
-    }
-    
-    if (s->width <= 0 || s->height <= 0){
-        fprintf(stderr, "Error: invalid screen size\n");
-        return;
-    }
+void screen_drawRect(Screen *s, int x, int y, int w, int h, bool fill, char c) {
+    if (!screen_valid(s)) return;
 
-    if (y < 0 || y >= s->height || x < 0 || x >= s->width){ 
-        fprintf(stderr, "Error: invalid set location\n");
-        return;
-    }
+    for (int ry = 0; ry < h; ry++) {
+        for (int cx = 0; cx < w; cx++) {
 
-    for(int ry = 0; ry < height; ry++){
-        for(int cx = 0; cx < width; cx++){
+            int sx = x + cx;
+            int sy = y + ry;
 
-            int screen_y = y + ry;
-            int screen_x = x + cx;
-
-            if(screen_y >= s->height || screen_x >= s->width) continue;
-
-            if(fill){
-                screen_set(s, screen_x, screen_y, c);
+            if (fill) {
+                screen_put(s, sx, sy, c);
             } else {
-                if(ry == 0 || ry == height-1 || cx == 0 || cx == width-1){
-                    screen_set(s, screen_x, screen_y, c);
+                if (ry == 0 || ry == h - 1 || cx == 0 || cx == w - 1) {
+                    screen_put(s, sx, sy, c);
                 }
             }
         }
     }
 }
 
-/*
-Delete a instance of Screen
-
-To delete a screen called X_screen :
-screen_destroy(X_screen);
-*/
-void screen_destroy(Screen *s){
-    if (!s) return;
-
-    free(s->data);
-    free(s);
-}
-
-/*
-Clear the Terminal
-
-To use :
-screen_terminalReset();
-*/
-void screen_terminalReset(void){
-    printf("\x1b[H");
-}
-
-/*
-Used to initialize the library
-If the user doesn't initialize the library, it will be done at the creation of a Screen instance
-
-To use :
-ACGL_init();
-*/
-void ACGL_init (void){
-    #ifdef _WIN32
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    DWORD mode = 0;
-    GetConsoleMode(hOut, &mode);
-    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    SetConsoleMode(hOut, mode);
-    #endif
-
-    setvbuf(stdout, NULL, _IONBF, 0);
-    printf("\x1b[?25l");
-}
-/*
-Draw a line between two point (x1,y1) to (x2,y2)
-Use the Bresenham's line algorithm
-
-To draw a line in a screen called X_screen :
-screen_drawLine(X_screen,x1,y1,x2,y2,'char')
-*/
-void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c){
-    if (!s){
-        fprintf(stderr, "Error: non-initialized Screen struct\n");
-        return;
-    }
-    if(!s->data){
-        fprintf(stderr, "Error: buffer allocation invalid\n");
-        return;
-    }
-    if (s->width <= 0 || s->height <= 0){
-        fprintf(stderr, "Error: invalid screen size\n");
-        return;
-    }
+void screen_drawLine(Screen *s, int x1, int y1, int x2, int y2, char c) {
+    if (!screen_valid(s)) return;
 
     int sx = (x1 < x2) ? 1 : -1;
     int sy = (y1 < y2) ? 1 : -1;
+
     int dx = abs(x2 - x1);
     int dy = abs(y2 - y1);
     int error = dx - dy;
 
     while (1) {
-
-        if (x1 >= 0 && x1 < s->width && y1 >= 0 && y1 < s->height) {
-            screen_set(s, x1, y1, c);
-        }
+        screen_put(s, x1, y1, c);
 
         if (x1 == x2 && y1 == y2) break;
 
@@ -341,112 +161,54 @@ void screen_drawLine(Screen *s,int x1,int y1,int x2,int y2,char c){
     }
 }
 
-/*
-put a delay given in fps
+void screen_drawCircle(Screen *s, int cx, int cy, int r, bool fill, char c) {
+    if (!screen_valid(s) || r < 0) return;
 
-To use put it a the end of your loop
-*/
-void screen_refreshRate(int fps){
-    if (fps<=0) return;
-    else{
-    int delay_us = 1000000 / fps;
-    usleep(delay_us);
-    }
-}
-
-/*
-Draw a circle with (cx,cy) as center of a given radius
-Use the Midpoint circle algorithm (Jesko's method)
-
-To draw a circle in a screen called X_screen :
-screen_drawCricle(X_screen,cx,cy,radius,[true OR false],'char');
-*/
-void screen_drawCircle(Screen *s, int cx, int cy, int radius, bool fill,char c){
-    if (!s || !s->data){
-        fprintf(stderr, "Error: invalid screen\n");
-        return;
-    }
-    if (radius < 0) return;
-
-    int x = radius;
+    int x = r;
     int y = 0;
-    int t1 = radius / 16;
+    int t1 = r / 16;
 
-    while (x >= y){
+    while (x >= y) {
 
-        if (fill){
-
-            for(int i = cx - x; i <= cx + x; i++){
-                screen_set(s, i, cy + y, c);
-                screen_set(s, i, cy - y, c);
+        if (fill) {
+            for (int i = cx - x; i <= cx + x; i++) {
+                screen_put(s, i, cy + y, c);
+                screen_put(s, i, cy - y, c);
             }
 
-            for(int i = cx - y; i <= cx + y; i++){
-                screen_set(s, i, cy + x, c);
-                screen_set(s, i, cy - x, c);
+            for (int i = cx - y; i <= cx + y; i++) {
+                screen_put(s, i, cy + x, c);
+                screen_put(s, i, cy - x, c);
             }
-
         } else {
+            screen_put(s, cx + x, cy + y, c);
+            screen_put(s, cx - x, cy + y, c);
+            screen_put(s, cx + x, cy - y, c);
+            screen_put(s, cx - x, cy - y, c);
 
-            screen_set(s, cx + x, cy + y, c);
-            screen_set(s, cx - x, cy + y, c);
-            screen_set(s, cx + x, cy - y, c);
-            screen_set(s, cx - x, cy - y, c);
-
-            screen_set(s, cx + y, cy + x, c);
-            screen_set(s, cx - y, cy + x, c);
-            screen_set(s, cx + y, cy - x, c);
-            screen_set(s, cx - y, cy - x, c);
+            screen_put(s, cx + y, cy + x, c);
+            screen_put(s, cx - y, cy + x, c);
+            screen_put(s, cx + y, cy - x, c);
+            screen_put(s, cx - y, cy - x, c);
         }
 
         y++;
         t1 += y;
-        int t2 = t1 - x;
 
-        if (t2 >= 0){
-            t1 = t2;
+        if (t1 - x >= 0) {
+            t1 -= x;
             x--;
         }
     }
 }
 
-int main(){
-    Screen *s = screen_create(40, 15);
+//Terminal utility
 
-    int cx = 10, cy = 5;
-    int dx = 1, dy = 1;
+void screen_terminalReset(void) {
+    printf("\x1b[H");
+}
 
-    int radius = 2;
-    int dr = 1;
-
-    while(1){
-        screen_terminalReset();     // go to top-left (no full clear)
-        screen_clear(s, ' ');       // clear buffer
-
-        // draw animated circle
-        screen_drawCircle(s, cx, cy, radius, true, 'O');
-
-        // draw border
-        screen_drawRect(s, 0, 0, s->width, s->height, false, '#');
-
-        screen_render(s);
-        screen_refreshRate(20);
-
-        // ===== UPDATE POSITION =====
-        cx += dx;
-        cy += dy;
-
-        // bounce on walls
-        if(cx - radius <= 1 || cx + radius >= s->width - 2) dx = -dx;
-        if(cy - radius <= 1 || cy + radius >= s->height - 2) dy = -dy;
-
-        // ===== UPDATE RADIUS =====
-        radius += dr;
-        if(radius <= 1 || radius >= 5) {
-            dr = -dr;
-        }
-    }
-
-    screen_destroy(s);
-    return 0;
+void screen_refreshRate(int fps) {
+    if (fps <= 0) return;
+    usleep(1000000 / fps);
 }
