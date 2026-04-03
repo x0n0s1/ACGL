@@ -116,7 +116,7 @@ screen_drawCricle(X_screen,cx,cy,radius,[true OR false],'char');
 */
 void screen_drawCircle(Screen *s, int x, int y, int radius, bool fill, char c);
 
-//Terminal Utilities
+//Terminal utility
 
 /*
 Clear the Terminal
